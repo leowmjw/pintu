@@ -18,12 +18,8 @@ type CookieFactory struct {
 }
 
 func NewCookieFactory(key string, secret string, expires int64) *CookieFactory {
-	// Default 7 days
-	if expires < 0 {
-		expires = int64(168) * int64(time.Hour)
-	}
-
-	expiresDuration := time.Duration(expires)
+	// expires in hour
+	expiresDuration := time.Duration(expires * int64(time.Hour))
 	return &CookieFactory{
 		key:    key,
 		secret: secret,

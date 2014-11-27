@@ -14,7 +14,7 @@ func main() {
 
 	ldap := ldap.NewLdapProvider()
 
-	server := pintu.New()
+	server := pintu.NewPintu()
 	server.Use(ldap)
 	server.Run()
 }

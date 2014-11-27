@@ -25,13 +25,13 @@ type (
 )
 
 const (
-	OptionLdapServer = "ldap_server"
-	OptionBaseDN     = "ldap_base_dn"
+	optionLdapServer = "ldap_server"
+	optionBaseDN     = "ldap_base_dn"
 )
 
 func NewLdapProvider() *LdapProvider {
 	s := &settings{}
-	flag.StringVar(&s.ldapServer, OptionLdapServer, "", "LDAP Server URI ie ldap://127.0.0.1:389")
+	flag.StringVar(&s.ldapServer, optionLdapServer, "", "LDAP Server URI ie ldap://127.0.0.1:389")
 	return &LdapProvider{
 		name:     "LDAP",
 		start:    "/auth/ldap/start",
@@ -42,9 +42,9 @@ func NewLdapProvider() *LdapProvider {
 
 func (p *LdapProvider) ParseSettings() {
 	if p.settings.ldapServer == "" {
-		pintu.EnvStringVar(&p.settings.ldapServer, OptionLdapServer)
+		pintu.EnvStringVar(&p.settings.ldapServer, optionLdapServer, "")
 		if p.settings.ldapServer == "" {
-			log.Fatalf("Please specify %s\n", OptionLdapServer)
+			log.Fatalf("missing param %s", optionLdapServer)
 		}
 	}
 }

@@ -1,13 +1,20 @@
 package pintu
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"flag"
+	"fmt"
+	"io"
+	"log"
 	"net/url"
 	"os"
+	"strconv"
+	"time"
 )
 
 type (
-	// Settings contains configuration required app's initiation
+	// Settings contains configuration required by Pintu
 	Settings struct {
 		HTTPAddress  string
 		Upstream     string
@@ -26,25 +33,31 @@ const (
 	optionCookieExpiry = "cookie_expiry"
 
 	defaultHTTPAddress            = "127.0.0.1:4180"
+	defaultUpstream               = ""
 	defaultCookieKey              = "_helios"
+	defaultCookieSecret           = "randomly generated sha1 hash"
 	defaultCookieExpiryHour int64 = 168 // 7 days
 )
+
+// Warning, settings error is not tolerated, all the invalid input will result in os.Exit
 
 // GetSettings returns settings from cli and env
 // Settings priority CLI > ENV
 func GetSettings() Settings {
 	cli := cliSettings()
 	env := envSettings()
-	return merge(cli, env)
+	s := merge(cli, env)
+	s.validateSettings()
+	return s
 }
 
 // cliSettings returns settings acquired from CLI
 func cliSettings() Settings {
 	settings := Settings{}
-	flag.StringVar(&settings.HTTPAddress, optionHTTPAddress, "", "<addr>:<port> to listen on for HTTP clients")
-	flag.StringVar(&settings.Upstream, optionUpstream, "", "the http url of the upstream endpoint")
+	flag.StringVar(&settings.HTTPAddress, optionHTTPAddress, defaultHTTPAddress, "<addr>:<port> to listen on for HTTP clients")
+	flag.StringVar(&settings.Upstream, optionUpstream, defaultUpstream, "the http url of the upstream endpoint")
 	flag.StringVar(&settings.CookieKey, optionCookieKey, defaultCookieKey, "the name of the secure cookies")
-	flag.StringVar(&settings.CookieSecret, optionCookieSecret, "", "the seed string for secure cookies")
+	flag.StringVar(&settings.CookieSecret, optionCookieSecret, defaultCookieSecret, "the seed string for secure cookies")
 	flag.Int64Var(&settings.CookieExpiry, optionCookieExpiry, defaultCookieExpiryHour, "cookie lifespan in hour")
 	flag.Parse()
 	return settings
@@ -53,34 +66,93 @@ func cliSettings() Settings {
 // envSettings returns settings acquired from environment variables
 func envSettings() Settings {
 	settings := Settings{}
-	EnvStringVar(&settings.HTTPAddress, optionHTTPAddress)
-	EnvStringVar(&settings.Upstream, optionUpstream)
+	EnvStringVar(&settings.HTTPAddress, optionHTTPAddress, defaultHTTPAddress)
+	EnvStringVar(&settings.Upstream, optionUpstream, defaultUpstream)
+	EnvStringVar(&settings.CookieKey, optionCookieKey, defaultCookieKey)
+	EnvStringVar(&settings.CookieSecret, optionCookieSecret, defaultCookieSecret)
+	EnvInt64Var(&settings.CookieExpiry, optionCookieExpiry, defaultCookieExpiryHour)
 	return settings
 }
 
-// envStringVar is helper function for environment variables lookip
-func EnvStringVar(option *string, field string) {
+// EnvStringVar is helper function for environment variables lookip
+func EnvStringVar(option *string, field, defaultval string) {
 	if value := os.Getenv(field); value != "" {
 		*option = value
+	} else {
+		*option = defaultval
+	}
+}
+
+func EnvInt64Var(option *int64, field string, defaultval int64) {
+	stringval := os.Getenv(field)
+	if stringval != "" {
+		value, err := strconv.ParseInt(stringval, 10, 64)
+		if err != nil {
+			log.Fatalf("param %s requires integer character", field)
+		}
+		if value > 0 {
+			*option = value
+		} else {
+			*option = defaultval
+		}
+	} else {
+		*option = defaultval
 	}
 }
 
 // merge filters settings values from CLI and ENV according to preset priority
 func merge(cli Settings, env Settings) Settings {
 	settings := Settings{}
-	settings.HTTPAddress = TopVar(cli.HTTPAddress, env.HTTPAddress, defaultHTTPAddress)
-	settings.Upstream = TopVar(cli.Upstream, env.Upstream, "")
+	settings.HTTPAddress = TopString(cli.HTTPAddress, env.HTTPAddress, defaultHTTPAddress)
+	settings.Upstream = TopString(cli.Upstream, env.Upstream, defaultUpstream)
+	settings.CookieKey = TopString(cli.CookieKey, env.CookieKey, defaultCookieKey)
+	settings.CookieSecret = TopString(cli.CookieSecret, env.CookieSecret, defaultCookieSecret)
+	settings.CookieExpiry = TopInt64(cli.CookieExpiry, env.CookieExpiry, defaultCookieExpiryHour)
 	return settings
 }
 
 // TopVar applies the settings priority rule and filter the one with highest priority
 // returns default value if available
-func TopVar(cli, env, defaultval string) string {
-	if cli != "" && cli != defaultHTTPAddress {
+func TopString(cli, env, defaultval string) string {
+	if cli != "" && cli != defaultval {
 		return cli
 	}
 	if env != "" {
 		return env
 	}
 	return defaultval
+}
+
+func TopInt64(cli, env, defaultval int64) int64 {
+	if cli > 0 && cli != defaultval {
+		return cli
+	}
+	if env > 0 {
+		return env
+	}
+	return defaultval
+}
+
+func (s *Settings) validateSettings() {
+	if s.HTTPAddress == "" {
+		log.Fatalf("missing param %s", optionHTTPAddress)
+	}
+
+	if s.Upstream == "" {
+		log.Fatalf("missing param %s", optionUpstream)
+	}
+
+	if s.CookieKey == "" {
+		log.Fatalf("missing param %s", optionCookieKey)
+	}
+
+	if s.CookieSecret == "" || s.CookieSecret == defaultCookieSecret {
+		h := sha1.New()
+		io.WriteString(h, fmt.Sprintf("%d", time.Now().Unix()))
+		s.CookieSecret = hex.EncodeToString(h.Sum(nil))
+	}
+
+	if s.CookieExpiry < 1 {
+		log.Fatalf("missing param %s", optionCookieSecret)
+	}
 }

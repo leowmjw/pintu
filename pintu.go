@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"time"
 
 	"github.com/codegangsta/negroni"
 )
@@ -28,7 +27,7 @@ type (
 	}
 )
 
-func New() *Pintu {
+func NewPintu() *Pintu {
 	logger := negroni.NewLogger()
 	recovery := negroni.NewRecovery()
 	proxy := negroni.New(logger, recovery)
@@ -44,10 +43,14 @@ func (p *Pintu) Use(providers ...Provider) {
 func (p *Pintu) Run() {
 	settings := GetSettings()
 
-	guard := NewGuard()
-	cookieFactory := NewCookieFactory("_pintu", "123", int64(14*24)*time.Hour.Nanoseconds())
-	guard.cookieFactory = cookieFactory
+	cookieFactory := NewCookieFactory(
+		settings.CookieKey,
+		settings.CookieSecret,
+		settings.CookieExpiry,
+	)
 
+	guard := NewGuard()
+	guard.cookieFactory = cookieFactory
 	guard.Use(p.providers...)
 
 	// Put this to the settings validator
