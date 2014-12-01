@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,6 +24,8 @@ type (
 		CookieSecret string
 		CookieExpiry int64
 	}
+
+	StringSlice []string
 )
 
 const (
@@ -34,10 +37,35 @@ const (
 
 	defaultHTTPAddress            = "127.0.0.1:4180"
 	defaultUpstream               = ""
-	defaultCookieKey              = "_helios"
+	defaultCookieKey              = "_pintu"
 	defaultCookieSecret           = "randomly generated sha1 hash"
 	defaultCookieExpiryHour int64 = 168 // 7 days
 )
+
+func (l *StringSlice) Set(s string) error {
+	*l = append(*l, s)
+	return nil
+}
+
+func (l *StringSlice) String() string {
+	return fmt.Sprint(*l)
+}
+
+func EnvStringSliceVar(ss *StringSlice, field string) {
+	values := os.Getenv(field)
+	if values != "" {
+		var l StringSlice
+		for _, item := range strings.Split(values, ",") {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				l = append(l, item)
+			}
+		}
+		if len(l) > 0 {
+			*ss = l
+		}
+	}
+}
 
 // Warning, settings error is not tolerated, all the invalid input will result in os.Exit
 
