@@ -5,9 +5,11 @@ Authentication reverse proxy server
 
 ## Architecture
 
-``` _______       _______       __________
+```
+    _______       _______       __________
     |Nginx| ----> |pintu| ----> |upstream|
     -------       -------       ----------
+
 ```
 
 ## Installation
