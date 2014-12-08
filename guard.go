@@ -49,6 +49,7 @@ func (g *Guard) CheckCookie(r *http.Request) (email string, ok bool) {
 }
 
 func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	r.Header.Del("X-Forwarded-Email")
 	email, ok := g.CheckCookie(r)
 
 	if !ok {
@@ -63,11 +64,12 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		return
 	}
 
-	r.Header["X-Forwarded-Email"] = []string{email}
+	r.Header.Add("X-Forwarded-Email", email)
 	next(w, r)
 }
 
 func (g *Guard) LoginPrompt(w http.ResponseWriter, r *http.Request) {
+	r.Header.Del("X-Forwarded-Email")
 	g.cookieFactory.ClearCookie(w, r)
 
 	partials := ""
